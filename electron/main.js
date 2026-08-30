@@ -19,8 +19,10 @@ const {
   requireBranchAccess,
   requireTenantRecord,
   requirePasswordChangeComplete,
+  requireFeature,
   ROLES,
 } = require('./auth');
+const { getEntitlements, getLimits, requireLimit } = require('./subscriptions');
 
 const API_PORT = 5051;
 let mainWindow;
@@ -98,6 +100,21 @@ ipcMain.handle('auth:changePassword', (event, { newPassword }) => {
   return requirePasswordChangeComplete(user.id, newPassword);
 });
 
+ipcMain.handle('subscription:current', (event) => {
+  const user = getSessionUser(event);
+  return getEntitlements(user);
+});
+
+ipcMain.handle('subscription:feature', (event, { featureKey }) => {
+  const user = getSessionUser(event);
+  return requireFeature(user, featureKey);
+});
+
+ipcMain.handle('subscription:limits', (event) => {
+  const user = getSessionUser(event);
+  return getLimits(user);
+});
+
 ipcMain.handle('tenant:current', (event) => {
   const user = getSessionUser(event);
   const tenant = db.prepare('SELECT id, tenant_code, business_name, active, created_at FROM tenants WHERE id=?').get(user.tenant_id);
@@ -125,6 +142,8 @@ ipcMain.handle('users:create', (event, { data }) => {
 
   const branchId = data.branch_id || user.branch_id || null;
   if (branchId) requireBranchAccess(user, branchId);
+  const currentUsers = db.prepare('SELECT COUNT(*) AS c FROM users WHERE tenant_id=? AND active=1').get(user.tenant_id).c;
+  requireLimit(user, 'users', currentUsers);
 
   const id = newId();
   try {

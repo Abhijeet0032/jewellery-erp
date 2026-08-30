@@ -24,9 +24,17 @@ const NAV_ITEMS = [
 function Shell() {
   const { currentUser, logout } = useAuth();
   const [roles, setRoles] = useState({});
-  useEffect(() => { window.erp.auth.roles().then(setRoles); }, []);
+  const [entitlements, setEntitlements] = useState(null);
+  useEffect(() => {
+    Promise.all([window.erp.auth.roles(), window.erp.subscription.current()]).then(([roleData, entitlementData]) => {
+      setRoles(roleData);
+      setEntitlements(entitlementData);
+    });
+  }, [currentUser.id]);
   const roleConfig = roles[currentUser.role];
-  const visibleNav = NAV_ITEMS.filter(item => roleConfig?.modules?.includes(item.module));
+  const enabledFeatures = new Set((entitlements?.features || []).filter(f => f.enabled).map(f => f.feature_key));
+  const moduleFeature = { item_master: 'item_master', billing: 'billing', customers: 'customers', rates: 'rate_master', reports: 'reports', users: 'staff_roles', settings: 'settings' };
+  const visibleNav = NAV_ITEMS.filter(item => roleConfig?.modules?.includes(item.module) && enabledFeatures.has(moduleFeature[item.module]));
 
   return (
     <HashRouter>
@@ -40,18 +48,18 @@ function Shell() {
           {visibleNav.map(item => <NavLink key={item.path} to={item.path} end={item.path === '/'}>{item.label}</NavLink>)}
           <div style={{ marginTop: 'auto', paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontSize: '0.78rem', color: '#C7CDD9' }}>{currentUser.full_name || currentUser.username}</div>
-            <div style={{ fontSize: '0.7rem', color: '#8A93A6', marginBottom: 10 }}>{roleConfig?.label || currentUser.role}</div>
+            <div style={{ fontSize: '0.7rem', color: '#8A93A6', marginBottom: 2 }}>{roleConfig?.label || currentUser.role}</div><div style={{ fontSize: '0.66rem', color: '#8A93A6', marginBottom: 10 }}>{entitlements?.subscription?.plan_name || 'Loading plan…'}</div>
             <button onClick={logout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#C7CDD9', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem' }}>Sign Out</button>
           </div>
         </nav>
         <Routes>
-          <Route path="/" element={roleConfig?.modules?.includes('item_master') ? <ItemMaster /> : <Denied />} />
-          <Route path="/billing" element={roleConfig?.modules?.includes('billing') ? <Billing /> : <Denied />} />
-          <Route path="/customers" element={roleConfig?.modules?.includes('customers') ? <Placeholder title="Customers" /> : <Denied />} />
-          <Route path="/rates" element={roleConfig?.modules?.includes('rates') ? <Placeholder title="Rate Master" /> : <Denied />} />
-          <Route path="/reports" element={roleConfig?.modules?.includes('reports') ? <Placeholder title="Reports" /> : <Denied />} />
-          <Route path="/users" element={roleConfig?.modules?.includes('users') ? <Users /> : <Denied />} />
-          <Route path="/settings" element={roleConfig?.modules?.includes('settings') ? <Placeholder title="Settings" /> : <Denied />} />
+          <Route path="/" element={roleConfig?.modules?.includes('item_master') && enabledFeatures.has('item_master') ? <ItemMaster /> : <Denied />} />
+          <Route path="/billing" element={roleConfig?.modules?.includes('billing') && enabledFeatures.has('billing') ? <Billing /> : <Denied />} />
+          <Route path="/customers" element={roleConfig?.modules?.includes('customers') && enabledFeatures.has('customers') ? <Placeholder title="Customers" /> : <Denied />} />
+          <Route path="/rates" element={roleConfig?.modules?.includes('rates') && enabledFeatures.has('rate_master') ? <Placeholder title="Rate Master" /> : <Denied />} />
+          <Route path="/reports" element={roleConfig?.modules?.includes('reports') && enabledFeatures.has('reports') ? <Placeholder title="Reports" /> : <Denied />} />
+          <Route path="/users" element={roleConfig?.modules?.includes('users') && enabledFeatures.has('staff_roles') ? <Users /> : <Denied />} />
+          <Route path="/settings" element={roleConfig?.modules?.includes('settings') && enabledFeatures.has('settings') ? <Placeholder title="Settings" /> : <Denied />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

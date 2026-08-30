@@ -324,6 +324,115 @@ function migrate() {
     db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(`${defaultTenantId}:${key}`, value);
   }
 
+  // Subscription and feature entitlement foundation. Platform definitions are
+  // immutable configuration; tenant subscription/overrides are tenant-scoped.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS features (
+      id TEXT PRIMARY KEY,
+      feature_key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      active INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS subscription_plans (
+      id TEXT PRIMARY KEY,
+      plan_code TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      limits_json TEXT NOT NULL DEFAULT '{}',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS plan_features (
+      plan_id TEXT NOT NULL,
+      feature_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (plan_id, feature_id),
+      FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE CASCADE,
+      FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL UNIQUE,
+      plan_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('trial','active','past_due','grace','suspended','expired','cancelled')),
+      starts_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tenant_feature_overrides (
+      tenant_id TEXT NOT NULL,
+      feature_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL,
+      expires_at TEXT,
+      reason TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (tenant_id, feature_id),
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tenant_subscriptions_tenant ON tenant_subscriptions(tenant_id, status, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_tenant_feature_overrides_tenant ON tenant_feature_overrides(tenant_id, enabled, expires_at);
+  `);
+
+  const features = [
+    ['item_master', 'Item Master', 'Manage jewellery item and stock master data'],
+    ['billing', 'Billing', 'Estimates and tax invoices'],
+    ['customers', 'Customers', 'Customer records and search'],
+    ['rate_master', 'Rate Master', 'Metal rate management'],
+    ['reports', 'Reports', 'Operational and business reports'],
+    ['staff_roles', 'Staff & Roles', 'User and role administration'],
+    ['settings', 'Settings', 'Retailer configuration'],
+    ['multi_branch', 'Multi Branch', 'Operate multiple branches'],
+    ['old_gold', 'Old Gold', 'Old-gold exchange and transactions'],
+    ['payments', 'Payments', 'Payment collection and settlement'],
+    ['advanced_reports', 'Advanced Reports', 'Advanced analytics and reports'],
+    ['stock_transfer', 'Stock Transfer', 'Inter-branch stock transfer'],
+    ['cloud_backup', 'ERP Cloud Backup', 'Encrypted backup to ERP cloud'],
+    ['google_drive_backup', 'Google Drive Backup', 'Encrypted backup to Google Drive'],
+    ['accounting_integration', 'Accounting Integration', 'External accounting integration'],
+    ['e_invoice', 'E-Invoice', 'Electronic invoice integration'],
+  ];
+  const insertFeature = db.prepare(`INSERT OR IGNORE INTO features (id, feature_key, name, description) VALUES (?, ?, ?, ?)`);
+  for (const [key, name, description] of features) insertFeature.run(`feature-${key}`, key, name, description);
+
+  const plans = [
+    ['basic', 'Basic', 'Core single-branch retail ERP', JSON.stringify({ users: 5, branches: 1 })],
+    ['pro', 'Pro', 'Multi-branch retail ERP with advanced operations', JSON.stringify({ users: 25, branches: 10 })],
+    ['enterprise', 'Enterprise', 'Full ERP with integrations and high limits', JSON.stringify({ users: 1000, branches: 100 })],
+  ];
+  const insertPlan = db.prepare(`INSERT OR IGNORE INTO subscription_plans (id, plan_code, name, description, limits_json) VALUES (?, ?, ?, ?, ?)`);
+  for (const row of plans) insertPlan.run(`plan-${row[0]}`, ...row);
+
+  // Existing/default tenant gets Pro so this migration never unexpectedly disables an existing installation.
+  const defaultSubscription = db.prepare(`
+    INSERT OR IGNORE INTO tenant_subscriptions
+      (id, tenant_id, plan_id, status)
+    VALUES (?, ?, ?, 'active')
+  `);
+  defaultSubscription.run(
+    'subscription-seed-default',
+    defaultTenantId,
+    'plan-pro'
+  );
+
+  const featureKeys = features.map(row => row[0]);
+  const basic = new Set(['item_master', 'billing', 'customers', 'rate_master', 'reports', 'staff_roles', 'settings']);
+  const pro = new Set([...basic, 'multi_branch', 'old_gold', 'payments', 'advanced_reports', 'stock_transfer', 'google_drive_backup']);
+  const enterprise = new Set(featureKeys);
+  const planSets = [['plan-basic', basic], ['plan-pro', pro], ['plan-enterprise', enterprise]];
+  const planFeature = db.prepare(`INSERT OR IGNORE INTO plan_features (plan_id, feature_id, enabled) SELECT ?, id, ? FROM features WHERE feature_key=?`);
+  for (const [planId, set] of planSets) for (const key of featureKeys) planFeature.run(planId, set.has(key) ? 1 : 0, key);
+
   // Index every tenant-scoped table. These are also useful when cloud sync is introduced.
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
@@ -347,6 +456,7 @@ function migrate() {
   const migrationVersions = [
     [1, 'multi-tenant foundation'],
     [2, 'sync queue lifecycle metadata and stock movement ledger'],
+    [3, 'subscription plans and tenant feature entitlements'],
   ];
   const markMigration = db.prepare('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)');
   for (const [version, description] of migrationVersions) markMigration.run(version, description);

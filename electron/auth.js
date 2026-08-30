@@ -6,6 +6,7 @@
 const bcrypt = require('bcryptjs');
 const { db } = require('./db');
 const ROLES = require('../roles.json');
+const { requireFeature } = require('./subscriptions');
 
 function login(tenantCode, username, password) {
   const code = String(tenantCode || '').trim().toUpperCase();
@@ -78,6 +79,11 @@ function requireModuleAccess(userId, moduleKey) {
   if (!roleConfig.modules.includes(moduleKey)) {
     throw new Error(`Not authorized: role "${user.role}" has no access to "${moduleKey}"`);
   }
+  const featureForModule = {
+    item_master: 'item_master', billing: 'billing', customers: 'customers',
+    rates: 'rate_master', reports: 'reports', users: 'staff_roles', settings: 'settings'
+  }[moduleKey];
+  if (featureForModule) requireFeature(user, featureForModule);
   return user;
 }
 
@@ -131,5 +137,6 @@ module.exports = {
   requireBranchAccess,
   requireTenantRecord,
   requirePasswordChangeComplete,
+  requireFeature,
   ROLES,
 };

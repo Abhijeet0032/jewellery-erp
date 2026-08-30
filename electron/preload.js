@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('erp', {
   tenant: {
     current: () => ipcRenderer.invoke('tenant:current'),
   },
+  subscription: {
+    current: () => ipcRenderer.invoke('subscription:current'),
+    feature: (featureKey) => ipcRenderer.invoke('subscription:feature', { featureKey }),
+    limits: () => ipcRenderer.invoke('subscription:limits'),
+  },
   users: {
     list: () => ipcRenderer.invoke('users:list'),
     create: (data) => ipcRenderer.invoke('users:create', { data }),
