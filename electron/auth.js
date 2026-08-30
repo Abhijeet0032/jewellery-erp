@@ -51,12 +51,20 @@ function getAuthenticatedUser(userId) {
   return user;
 }
 
+
+function ensureAuthenticatedUser(userOrId) {
+  if (userOrId && typeof userOrId === 'object' && userOrId.id) {
+    return getAuthenticatedUser(userOrId.id);
+  }
+  return getAuthenticatedUser(userOrId);
+}
+
 function hashPassword(plainPassword) {
   return bcrypt.hashSync(plainPassword, 10);
 }
 
 function requirePermission(userId, permissionKey) {
-  const user = getAuthenticatedUser(userId);
+  const user = ensureAuthenticatedUser(userId);
   const roleConfig = ROLES[user.role];
   if (!roleConfig[permissionKey]) {
     throw new Error(`Not authorized: role "${user.role}" cannot perform this action`);
@@ -65,7 +73,7 @@ function requirePermission(userId, permissionKey) {
 }
 
 function requireModuleAccess(userId, moduleKey) {
-  const user = getAuthenticatedUser(userId);
+  const user = ensureAuthenticatedUser(userId);
   const roleConfig = ROLES[user.role];
   if (!roleConfig.modules.includes(moduleKey)) {
     throw new Error(`Not authorized: role "${user.role}" has no access to "${moduleKey}"`);
@@ -80,7 +88,7 @@ function canAccessBranch(user, branchId) {
 }
 
 function requireBranchAccess(userId, branchId) {
-  const user = getAuthenticatedUser(userId);
+  const user = ensureAuthenticatedUser(userId);
   const branch = db.prepare('SELECT * FROM branches WHERE id = ? AND tenant_id = ? AND active = 1').get(branchId, user.tenant_id);
   if (!branch) throw new Error('Branch not found for this retailer');
   if (!canAccessBranch(user, branchId)) {
@@ -90,7 +98,7 @@ function requireBranchAccess(userId, branchId) {
 }
 
 function requireTenantRecord(userId, table, recordId) {
-  const user = getAuthenticatedUser(userId);
+  const user = ensureAuthenticatedUser(userId);
   const allowed = new Set([
     'users', 'branches', 'rate_master', 'items', 'customers', 'invoices',
     'invoice_items', 'payments', 'old_gold_transactions', 'audit_log',

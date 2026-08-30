@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   async function changePassword(newPassword) {
     setError(null);
     try {
-      await window.erp.auth.changePassword(currentUser.id, newPassword);
+      await window.erp.auth.changePassword(newPassword);
       setCurrentUser(prev => ({ ...prev, must_change_password: 0 }));
       return true;
     } catch (err) {
@@ -30,9 +30,11 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function logout() {
-    setCurrentUser(null);
-    setError(null);
+  async function logout() {
+    try { await window.erp.auth.logout(); } finally {
+      setCurrentUser(null);
+      setError(null);
+    }
   }
 
   return (

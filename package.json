@@ -12,7 +12,8 @@
     "electron:dev": "concurrently -k \"npm run dev:react\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build:react && electron-builder",
     "test:tenant": "electron scripts/tenant-isolation-test.js",
-    "test:foundation": "electron scripts/foundation-test.js"
+    "test:foundation": "electron scripts/foundation-test.js",
+    "test:session": "node scripts/session-security-test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
