@@ -23,6 +23,7 @@ const {
   ROLES,
 } = require('./auth');
 const { getEntitlements, getLimits, requireLimit } = require('./subscriptions');
+const { getCompany, updateCompany } = require('./retailer');
 
 const API_PORT = 5051;
 let mainWindow;
@@ -117,10 +118,26 @@ ipcMain.handle('subscription:limits', (event) => {
 
 ipcMain.handle('tenant:current', (event) => {
   const user = getSessionUser(event);
-  const tenant = db.prepare('SELECT id, tenant_code, business_name, active, created_at FROM tenants WHERE id=?').get(user.tenant_id);
-  return { ...tenant, user_branch_id: user.branch_id };
+  const company = getCompany(user);
+
+  return {
+    ...company,
+    user_branch_id: user.branch_id,
+  };
 });
 
+ipcMain.handle('tenant:update', (event, { data }) => {
+  const user = getSessionUser(event);
+
+  if (
+    user.role !== 'super_admin' &&
+    user.role !== 'branch_manager'
+  ) {
+    throw new Error('Not authorized to update company profile');
+  }
+
+  return updateCompany(user, data);
+});
 // ===================== USER MANAGEMENT =====================
 ipcMain.handle('users:list', (event) => {
   const user = requirePermission(getSessionUser(event), 'canManageUsers');

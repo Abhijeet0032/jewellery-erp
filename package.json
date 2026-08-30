@@ -14,7 +14,8 @@
     "test:tenant": "electron scripts/tenant-isolation-test.js",
     "test:foundation": "electron scripts/foundation-test.js",
     "test:session": "node scripts/session-security-test.js",
-    "test:subscription": "electron scripts/subscription-test.js"
+    "test:subscription": "electron scripts/subscription-test.js",
+    "test:retailer": "electron scripts/retailer-test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

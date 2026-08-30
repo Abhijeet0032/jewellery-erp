@@ -8,8 +8,9 @@ contextBridge.exposeInMainWorld('erp', {
     changePassword: (newPassword) => ipcRenderer.invoke('auth:changePassword', { newPassword }),
   },
   tenant: {
-    current: () => ipcRenderer.invoke('tenant:current'),
-  },
+  current: () => ipcRenderer.invoke('tenant:current'),
+  update: (data) => ipcRenderer.invoke('tenant:update', { data }),
+},
   subscription: {
     current: () => ipcRenderer.invoke('subscription:current'),
     feature: (featureKey) => ipcRenderer.invoke('subscription:feature', { featureKey }),

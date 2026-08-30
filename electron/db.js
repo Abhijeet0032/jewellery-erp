@@ -453,10 +453,48 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_customers_search ON customers(tenant_id, phone);
     CREATE INDEX IF NOT EXISTS idx_invoices_number ON invoices(tenant_id, invoice_number);
   `);
+  // Migration 4: extend the existing tenant record into a retailer/company profile.
+  const tenantColumns = db.prepare('PRAGMA table_info(tenants)').all();
+  const existingTenantColumns = new Set(
+    tenantColumns.map((column) => column.name)
+  );
+
+  const addTenantColumn = (name, definition) => {
+    if (!existingTenantColumns.has(name)) {
+      db.exec(`ALTER TABLE tenants ADD COLUMN ${name} ${definition}`);
+    }
+  };
+
+  addTenantColumn('legal_name', 'TEXT');
+  addTenantColumn('display_name', 'TEXT');
+  addTenantColumn('phone', 'TEXT');
+  addTenantColumn('email', 'TEXT');
+  addTenantColumn('address', 'TEXT');
+  addTenantColumn('city', 'TEXT');
+  addTenantColumn('state', 'TEXT');
+  addTenantColumn('pincode', 'TEXT');
+  addTenantColumn('gstin', 'TEXT');
+  addTenantColumn('pan', 'TEXT');
+  addTenantColumn('logo_path', 'TEXT');
+  addTenantColumn('currency', "TEXT NOT NULL DEFAULT 'INR'");
+  addTenantColumn('timezone', "TEXT NOT NULL DEFAULT 'Asia/Kolkata'");
+
+  db.prepare(`
+    UPDATE tenants
+    SET
+      legal_name = COALESCE(NULLIF(legal_name, ''), business_name),
+      display_name = COALESCE(NULLIF(display_name, ''), business_name)
+    WHERE legal_name IS NULL
+       OR legal_name = ''
+       OR display_name IS NULL
+       OR display_name = ''
+  `);
+
   const migrationVersions = [
     [1, 'multi-tenant foundation'],
     [2, 'sync queue lifecycle metadata and stock movement ledger'],
     [3, 'subscription plans and tenant feature entitlements'],
+    [4, 'retailer company profile'],
   ];
   const markMigration = db.prepare('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)');
   for (const [version, description] of migrationVersions) markMigration.run(version, description);
