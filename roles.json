@@ -1,0 +1,59 @@
+{
+  "super_admin": {
+    "label": "Super Admin",
+    "description": "Full control of everything, all branches",
+    "modules": ["item_master", "billing", "customers", "rates", "reports", "users", "settings"],
+    "canManageUsers": true,
+    "canSetRates": true,
+    "canCancelInvoice": true
+  },
+  "branch_manager": {
+    "label": "Branch Manager",
+    "description": "Full access within their own branch",
+    "modules": ["item_master", "billing", "customers", "rates", "reports"],
+    "canManageUsers": false,
+    "canSetRates": true,
+    "canCancelInvoice": true
+  },
+  "accountant": {
+    "label": "Accountant",
+    "description": "Ledgers and reports, no stock or rate edits",
+    "modules": ["billing", "customers", "reports"],
+    "canManageUsers": false,
+    "canSetRates": false,
+    "canCancelInvoice": false
+  },
+  "sales_staff": {
+    "label": "Sales Staff",
+    "description": "Create estimates/invoices, read-only stock",
+    "modules": ["item_master", "billing", "customers"],
+    "canManageUsers": false,
+    "canSetRates": false,
+    "canCancelInvoice": false
+  },
+  "inventory_staff": {
+    "label": "Inventory Staff",
+    "description": "Stock in/out, no billing or financial reports",
+    "modules": ["item_master"],
+    "canManageUsers": false,
+    "canSetRates": false,
+    "canCancelInvoice": false
+  },
+  "karigar_coordinator": {
+    "label": "Karigar Coordinator",
+    "description": "Job-work material issue/receive only",
+    "modules": ["item_master"],
+    "canManageUsers": false,
+    "canSetRates": false,
+    "canCancelInvoice": false
+  },
+  "auditor": {
+    "label": "Auditor",
+    "description": "View-only across every module",
+    "modules": ["item_master", "billing", "customers", "rates", "reports"],
+    "canManageUsers": false,
+    "canSetRates": false,
+    "canCancelInvoice": false,
+    "readOnly": true
+  }
+}

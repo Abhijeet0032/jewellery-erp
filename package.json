@@ -1,0 +1,49 @@
+{
+  "name": "jewellery-erp",
+  "version": "0.1.0",
+  "description": "Offline-first jewellery ERP - billing, inventory, tax, and business management",
+  "main": "electron/main.js",
+  "author": "Your Business",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev:react": "vite",
+    "build:react": "vite build",
+    "electron:dev": "concurrently -k \"npm run dev:react\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "npm run build:react && electron-builder",
+    "test:tenant": "electron scripts/tenant-isolation-test.js",
+    "test:foundation": "electron scripts/foundation-test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "json2csv": "^6.0.0-alpha.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "electron": "^44.0.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.yourbusiness.jewelleryerp",
+    "productName": "Jewellery ERP",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}
